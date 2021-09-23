@@ -3,30 +3,19 @@
 module Theme exposing (darkTheme)
 
 import Element exposing (rgb255)
-import Element.Font as Font exposing (Font)
-
-type alias Theme =
-    { headerBackground : Element.Color
-    , text : Element.Color
-    , contentBackground : Element.Color
-    , logoBorder : Element.Color
-    , textFont : List Font
-    , buttonBorder : Element.Color
-    , headerButtonHover : Element.Color
-    , lineIndicator : Element.Color
-    , lineBar: Element.Color
-    }
+import Element.Font as Font
 
 
-darkTheme: Theme 
 darkTheme =
-    { headerBackground = rgb255 1 1 1
+    { headerBackground = rgb255 0x25 0x25 0x25
+    , outerText = rgb255 0xc7 0xf3 0xe3
     , text = rgb255 0xfb 0xfb 0xfb
-    , contentBackground = rgb255 0x10 0x10 0x10
+    , contentBackground = rgb255 6 6 6
     , logoBorder = rgb255 0x6b 0xa2 0xf0
     , textFont = [ Font.typeface "Fira Mono", Font.monospace ]
-    , buttonBorder = rgb255 0xfb 0xfb 0xfb
-    , headerButtonHover = rgb255 0xa0 0xa0 0xa0
-    , lineIndicator = rgb255 0xb0 0xb0 0xb0
-    , lineBar = rgb255 0x20 0x20 0x20
+    , logoFont = [ Font.typeface "Roboto Mono", Font.monospace ]
+    , lineIndicator = rgb255 0xd1 0xd0 0xd0
+    , lineBar = rgb255 0x2f 0x2f 0x2f
+    , footerBackground = rgb255 0x23 0x23 0x23
+    , footerBorder = rgb255 0x4B 0x4B 0x4B
     }

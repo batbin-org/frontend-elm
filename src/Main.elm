@@ -1,10 +1,12 @@
-
 -- Copyright 2021 - 2021, Udit Karode, Rupansh Sekar and BatBin contributors
 -- SPDX-License-Identifier: GPL-3.0-or-later
+
+
 module Main exposing (..)
 
 import Browser
 import Browser.Dom as Dom
+import Consts exposing (consts)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -12,18 +14,16 @@ import Element.Events as Events
 import Element.Font as Font
 import Element.Input as Input
 import Element.Lazy exposing (lazy)
-import FontAwesome.Attributes as Icon
-import FontAwesome.Brands as Icon
-import FontAwesome.Icon as Icon exposing (Icon)
-import FontAwesome.Solid as Icon
-import FontAwesome.Styles as Icon
+import FeatherIcons as Icon exposing (Icon)
 import Html.Attributes as Attr
+import Regex exposing (Regex)
+import Stats
 import Task
 import Theme exposing (darkTheme)
 
 
 type alias Model =
-    { code : String, lines : Int }
+    { code : String, lines : Int, columns : Int }
 
 
 logoBord : String -> Element msg
@@ -34,21 +34,21 @@ logoBord s =
 
 logo : Element msg
 logo =
-    row [ Font.bold, Font.size 24 ]
-        [ logoBord "<"
-        , text "BatBin"
-        , logoBord "/>"
-        ]
+    el [ Font.color darkTheme.outerText, Font.size 42, Font.family darkTheme.logoFont ] (text "batbin")
 
 
 fontAwesomeHeader : Icon -> Element msg
 fontAwesomeHeader icon =
-    row [ mouseOver [ Font.color darkTheme.headerButtonHover ] ] [ html <| Icon.viewStyled [ Icon.lg ] icon, text "" ]
+    el
+        [ Font.color darkTheme.outerText
+        , mouseOver [ alpha 0.6 ]
+        ]
+        (html <| (icon |> Icon.withSize 34 |> Icon.withStrokeWidth 1 |> Icon.toHtml []))
 
 
 header : Element msg
 header =
-    row [ width fill, height <| fillPortion 1, Background.color darkTheme.headerBackground, paddingXY 16 0, spaceEvenly ]
+    row [ width fill, height <| fillPortion 4, Background.color darkTheme.headerBackground, paddingXY 44 0, spaceEvenly ]
         [ logo
         , row [ spacing 14 ]
             [ newTabLink [] { label = fontAwesomeHeader Icon.github, url = "https://github.com/batbin-org" }
@@ -61,7 +61,7 @@ content : Model -> Element Msg
 content model =
     row
         [ width fill
-        , height <| fillPortion 14
+        , height <| fillPortion 36
         , Background.color darkTheme.contentBackground
         , scrollbars
         , Font.size 16
@@ -71,7 +71,7 @@ content model =
             [ alignTop
             , Font.color darkTheme.lineIndicator
             , Background.color darkTheme.lineBar
-            , paddingEach { top = 0, left = 4, right = 8, bottom = 0 }
+            , paddingEach { top = 14, left = 24, right = 12, bottom = 12 }
             , width (shrink |> maximum 50)
             ]
           <|
@@ -81,7 +81,7 @@ content model =
             [ Background.color darkTheme.contentBackground
             , alignTop
             , width fill
-            , paddingEach { top = 0, bottom = 12, left = 6, right = 0 }
+            , paddingEach { top = 14, bottom = 12, left = 6, right = 0 }
             , Border.color <| rgba 0 0 0 0
             , focused [ Border.color <| rgba 0 0 0 0 ]
             , Input.focusedOnLoad
@@ -97,15 +97,43 @@ content model =
         ]
 
 
+footer : Model -> Element msg
+footer model =
+    row
+        [ width fill
+        , height <| fillPortion 1
+        , Background.color darkTheme.footerBackground
+        , Border.roundEach
+            { topLeft = 10
+            , topRight = 10
+            , bottomLeft = 0
+            , bottomRight = 0
+            }
+        , Border.solid
+        , Border.widthEach
+            { bottom = 0
+            , left = 0
+            , right = 0
+            , top = 1
+            }
+        , Border.color darkTheme.footerBorder
+        , Font.color darkTheme.outerText
+        , Font.size 14
+        , paddingXY 32 3
+        ]
+        [ text <| String.fromInt model.lines ++ " lines, " ++ String.fromInt model.columns ++ " columns"
+        ]
+
+
 view : Model -> Browser.Document Msg
 view model =
     { title = "BatBin"
     , body =
         [ layout [] <|
-            column [ width fill, height fill, Font.color darkTheme.text, Font.family darkTheme.textFont ]
-                [ lazy html Icon.css
-                , header
+            column [ width fill, height fill, Font.color darkTheme.text, Font.family darkTheme.textFont, Background.color darkTheme.contentBackground ]
+                [ header
                 , lazy content model
+                , lazy footer model
                 ]
         ]
     }
@@ -121,7 +149,17 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         CodeInput c ->
-            ( { model | code = c, lines = List.length (String.lines c) }, Cmd.none )
+            let
+                lines =
+                    String.lines c
+            in
+            ( { model
+                | code = c
+                , lines = List.length lines
+                , columns = Stats.maxColumn lines
+              }
+            , Cmd.none
+            )
 
         FocusInput ->
             ( model, Task.attempt (\_ -> NoOp) (Dom.focus "code-input") )
@@ -132,7 +170,7 @@ update msg model =
 
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { code = "", lines = 1 }, Cmd.none )
+    ( { code = "", lines = 1, columns = 0 }, Cmd.none )
 
 
 subscriptions : Model -> Sub Msg
