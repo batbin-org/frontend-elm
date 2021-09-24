@@ -37,23 +37,23 @@ logo =
     el [ Font.color darkTheme.outerText, Font.size 42, Font.family darkTheme.logoFont ] (text "batbin")
 
 
-fontAwesomeHeader : Icon -> Element msg
-fontAwesomeHeader icon =
+fontAwesomeHeader : List (Attribute msg) -> Icon -> Element msg
+fontAwesomeHeader props icon =
     el
-        [ Font.color darkTheme.outerText
-        , mouseOver [ alpha 0.6 ]
-        ]
+        (props
+            ++ [ Font.color darkTheme.outerText
+               , mouseOver [ alpha 0.6 ]
+               ]
+        )
         (html <| (icon |> Icon.withSize 34 |> Icon.withStrokeWidth 1 |> Icon.toHtml []))
 
 
 header : Element msg
 header =
-    row [ width fill, height <| fillPortion 4, Background.color darkTheme.headerBackground, paddingXY 44 0, spaceEvenly ]
+    row [ width fill, height <| fillPortion 4, Background.color darkTheme.headerBackground, paddingXY 44 0, spacing 14 ]
         [ logo
-        , row [ spacing 14 ]
-            [ newTabLink [] { label = fontAwesomeHeader Icon.github, url = "https://github.com/batbin-org" }
-            , fontAwesomeHeader Icon.save
-            ]
+        , newTabLink [ alignRight ] { label = fontAwesomeHeader [] Icon.github, url = "https://github.com/batbin-org" }
+        , fontAwesomeHeader [ alignRight ] Icon.save
         ]
 
 
@@ -67,21 +67,22 @@ content model =
         , Font.size 16
         , Events.onClick FocusInput
         ]
-        [ column
-            [ alignTop
-            , Font.color darkTheme.lineIndicator
-            , Background.color darkTheme.lineBar
-            , paddingEach { top = 14, left = 24, right = 12, bottom = 12 }
-            , width (shrink |> maximum 50)
+        [ row [ alignTop, width <| fillPortion 4, Background.color darkTheme.lineBar ]
+            [ column
+                [ alignTop
+                , alignRight
+                , Font.color darkTheme.lineIndicator
+                , paddingEach { top = 12, bottom = 12, left = 0, right = 16 }
+                ]
+              <|
+                List.map (\i -> el [ alignRight ] <| text <| String.fromInt i) <|
+                    List.range 0 (model.lines - 1)
             ]
-          <|
-            List.map (\i -> el [ alignLeft ] <| text <| String.fromInt i) <|
-                List.range 0 (model.lines - 1)
         , Input.multiline
             [ Background.color darkTheme.contentBackground
             , alignTop
-            , width fill
-            , paddingEach { top = 14, bottom = 12, left = 6, right = 0 }
+            , width <| fillPortion 130
+            , paddingEach { top = 12, bottom = 12, left = 6, right = 0 }
             , Border.color <| rgba 0 0 0 0
             , focused [ Border.color <| rgba 0 0 0 0 ]
             , Input.focusedOnLoad
