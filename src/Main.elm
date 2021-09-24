@@ -6,7 +6,6 @@ module Main exposing (..)
 
 import Browser
 import Browser.Dom as Dom
-import Consts exposing (consts)
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -16,7 +15,6 @@ import Element.Input as Input
 import Element.Lazy exposing (lazy)
 import FeatherIcons as Icon exposing (Icon)
 import Html.Attributes as Attr
-import Regex exposing (Regex)
 import Stats
 import Task
 import Theme exposing (darkTheme)
