@@ -5,5 +5,5 @@ consts =
     {
         tabSize = 4,
         tabMatch = Maybe.withDefault Regex.never <| Regex.fromString "^[ \\t]+",
-        backendBase = "https://b.uditkaro.de/api/paste/"
+        backendBase = "https://batbin.me/api/paste/"
     }

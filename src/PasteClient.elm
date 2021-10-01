@@ -9,7 +9,7 @@ type alias PasteResponse =
     , status: String
     }
 
-type Ret = Paste (Result Http.Error PasteResponse)
+type Ret = Paste (Result Http.Error String)
 
 pasteDecoder: Decoder PasteResponse
 pasteDecoder =
@@ -21,15 +21,15 @@ pasteMapper: Ret -> Maybe String
 pasteMapper r =
     case r of
         Paste (Ok resp) ->
-            if resp.status == "success" then Just resp.message else Nothing
+            Result.withDefault (Just resp) <| Result.map (\_ -> Nothing) <| Json.Decode.decodeString pasteDecoder resp
         _ ->
             Nothing
 
 fetchPaste: String -> Cmd Ret
 fetchPaste id =
     Http.get
-        { url = consts.backendBase ++ "id"
-        , expect = Http.expectJson Paste pasteDecoder
+        { url = consts.backendBase ++ id
+        , expect = Http.expectString Paste
         }
 
 getPaste: String -> Cmd (Maybe String)
