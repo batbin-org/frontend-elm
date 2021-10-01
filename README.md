@@ -2,13 +2,13 @@
 
 WIP Elm Frontend for BatBin
 
+This app uses [create-elm-app](https://github.com/halfzebra/create-elm-app)
 
-## Compiling
 
-`elm make src/Main.elm --output=public/dist/main.js`
+## Running
 
-## Testing
+`elm-app start`
 
-`elm reactor`
+## Building
 
-navigate to http://localhost:8000/src/Main.elm
+`elm-app build`
