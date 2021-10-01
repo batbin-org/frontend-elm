@@ -1,3 +1,7 @@
+-- Copyright 2021 - 2021, Udit Karode, Rupansh Sekar and BatBin contributors
+-- SPDX-License-Identifier: GPL-3.0-or-later
+
+
 module PasteClient exposing (getPaste)
 
 import Consts exposing (consts)

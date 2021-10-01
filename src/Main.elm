@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: GPL-3.0-or-later
 
 
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Browser.Dom as Dom
@@ -20,15 +20,15 @@ import Stats
 import Task
 import Theme exposing (darkTheme)
 import Url
-import Url.Parser exposing (Parser, string, (</>), s, map, oneOf)
-import Http
+import Url.Parser exposing (Parser, string, (</>), s, oneOf)
+import Html exposing (Html, pre, code)
 import Url.Builder
 import PasteClient exposing (getPaste)
 
 
 type CodeDisplayMode = Mut | Immut
 type alias Model =
-    { code : String, key : Nav.Key, codeDisplay : CodeDisplayMode, lines : Int, columns : Int }
+    { code : String, extension: Maybe String, key : Nav.Key, codeDisplay : CodeDisplayMode, lines : Int, columns : Int }
 type Route = Paste String
 
 
@@ -66,9 +66,9 @@ header =
 baseCodeStyle : List (Attribute msg)
 baseCodeStyle =
     [Background.color darkTheme.contentBackground
+    , paddingEach { top = 12, bottom = 12, left = 6, right = 0 }
     , alignTop
     , width <| fillPortion 130
-    , paddingEach { top = 12, bottom = 12, left = 6, right = 0 }
     , spacing 0
     ]
 
@@ -87,9 +87,24 @@ codeInput model =
         , spellcheck = False
         }
 
+noMarginPre: List (Html msg) -> Html msg
+noMarginPre e =
+    pre [ Attr.style "margin" "0" ] e
+
+highlightCode: String -> Maybe String -> Html msg
+highlightCode c ext =
+    code [ Attr.id "code"
+    , Attr.style "padding" "0"
+    , Attr.class <| Maybe.withDefault "autodetect" <| Maybe.map (\e -> "language-" ++ e) ext
+    ] [ Html.text c ] 
+
+highlightBlock : String -> Maybe String -> Element msg
+highlightBlock c ext =
+    html <| noMarginPre [ highlightCode c ext ]
+
 codeImmut : Model -> Element Msg
 codeImmut model =
-    el baseCodeStyle (text model.code)
+    el baseCodeStyle (highlightBlock model.code model.extension)
 
 content : Model -> Element Msg
 content model =
@@ -165,28 +180,48 @@ view model =
 
 type Msg
     = CodeInput String
+    | CodeRemote String (Maybe String)
     | FocusInput
     | LinkClick Browser.UrlRequest
     | UrlChange Url.Url
     | Reset
     | NoOp
 
+updateCode : String -> Model -> Model
+updateCode c model =
+    let
+        lines =
+            String.lines c
+    in
+    { model
+     | code = c
+     , lines = List.length lines
+     , columns = Stats.maxColumn lines
+    }
+
+resetBase: Nav.Key -> (Model, Cmd Msg)
+resetBase key =
+    (baseModel key Mut, Nav.pushUrl key <| Url.Builder.relative ["/"] [])
+
+onUrlChange: Url.Url -> Nav.Key -> (Model, Cmd Msg)
+onUrlChange url key =
+    case Url.Parser.parse routeParser url of
+        Nothing ->
+            (baseModel key Mut, Cmd.none )
+        Just(Paste s) ->
+            Maybe.withDefault (resetBase key) <| Maybe.map (\cmd -> (baseModel key Immut, cmd)) <| getPasteRemote s
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         CodeInput c ->
+            ( updateCode c model, Cmd.none)
+
+        CodeRemote c extension ->
             let
-                lines =
-                    String.lines c
+                newModel = updateCode c model
             in
-            ( { model
-                | code = c
-                , lines = List.length lines
-                , columns = Stats.maxColumn lines
-              }
-            , Cmd.none
-            )
+            ( { newModel | extension = extension }, highlight () )
 
         FocusInput ->
             ( model, Task.attempt (\_ -> NoOp) (Dom.focus "code-input") )
@@ -194,44 +229,50 @@ update msg model =
         LinkClick req ->
             case req of
                 Browser.Internal url ->
-                    (model, Cmd.none) -- TODO
+                    ( model, Nav.pushUrl model.key (Url.toString url) )
                 Browser.External href ->
                     ( model, Nav.load href )
     
         UrlChange url ->
-            (model, Cmd.none) -- TODO
+            onUrlChange url model.key
 
         Reset ->
-            (baseModel model.key Mut, Nav.pushUrl model.key <| Url.Builder.relative ["/"] [])
+            resetBase model.key
 
         NoOp ->
-            ( model, Cmd.none )
+            (model, Cmd.none)
 
 
-remotePasteMap: Maybe String -> Msg
-remotePasteMap m =
-    Maybe.withDefault Reset <| Maybe.map (\c -> CodeInput c) m
+remotePasteMap: Maybe String -> Maybe String -> Msg
+remotePasteMap m ext =
+    Maybe.withDefault Reset <| Maybe.map (\c -> CodeRemote c ext) m
 
-getPasteRemote: String -> Cmd Msg
+getPasteRemote: String -> Maybe (Cmd Msg)
 getPasteRemote id =
-    Cmd.map remotePasteMap <| getPaste id
+    case String.split "." id of
+        [pasteid, ext] -> Just <| Cmd.map (\c -> remotePasteMap c (Just ext)) <| getPaste pasteid
+        [pasteid] -> Just <| Cmd.map (\c -> remotePasteMap c Nothing) <| getPaste pasteid
+        _ -> Nothing
 
 
 baseModel: Nav.Key -> CodeDisplayMode -> Model
-baseModel key codeDisplay = { code = "", key = key, codeDisplay = codeDisplay, lines = 1, columns = 0 }
+baseModel key codeDisplay =
+    { code = ""
+    , extension = Nothing
+    , key = key
+    , codeDisplay = codeDisplay
+    , lines = 1
+    , columns = 0 
+    }
 
 routeParser : Parser (Route -> a) a
 routeParser =
     oneOf [ Url.Parser.map Paste string ]
 
 init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init _ url key =
-    case Url.Parser.parse routeParser url of
-        Nothing ->
-            (baseModel key Mut, Cmd.none )
-        Just(Paste s) ->
-            (baseModel key Immut , getPasteRemote s)
+init _ url key = onUrlChange url key
 
+port highlight : () -> Cmd msg
 
 subscriptions : Model -> Sub Msg
 subscriptions _ =

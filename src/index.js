@@ -1,3 +1,10 @@
 import { Elm } from './Main.elm';
 
-Elm.Main.init({});
+const app = Elm.Main.init({});
+
+app.ports.highlight.subscribe(function() {
+    requestAnimationFrame(function() {
+        const block = document.getElementById('code');
+        hljs.highlightElement(block);
+    });
+});
