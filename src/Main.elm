@@ -6,6 +6,7 @@ module Main exposing (..)
 
 import Browser
 import Browser.Dom as Dom
+import Browser.Navigation as Nav
 import Element exposing (..)
 import Element.Background as Background
 import Element.Border as Border
@@ -18,10 +19,17 @@ import Html.Attributes as Attr
 import Stats
 import Task
 import Theme exposing (darkTheme)
+import Url
+import Url.Parser exposing (Parser, string, (</>), s, map, oneOf)
+import Http
+import Url.Builder
+import PasteClient exposing (getPaste)
 
 
+type CodeDisplayMode = Mut | Immut
 type alias Model =
-    { code : String, lines : Int, columns : Int }
+    { code : String, key : Nav.Key, codeDisplay : CodeDisplayMode, lines : Int, columns : Int }
+type Route = Paste String
 
 
 logoBord : String -> Element msg
@@ -55,8 +63,41 @@ header =
         ]
 
 
+baseCodeStyle : List (Attribute msg)
+baseCodeStyle =
+    [Background.color darkTheme.contentBackground
+    , alignTop
+    , width <| fillPortion 130
+    , paddingEach { top = 12, bottom = 12, left = 6, right = 0 }
+    , spacing 0
+    ]
+
+codeInput : Model -> Element Msg
+codeInput model =
+    Input.multiline
+        (baseCodeStyle ++ [ Border.color <| rgba 0 0 0 0
+        , focused [ Border.color <| rgba 0 0 0 0 ]
+        , Input.focusedOnLoad
+        , htmlAttribute <| Attr.id "code-input"
+        ])
+        { onChange = CodeInput
+        , text = model.code
+        , placeholder = Nothing
+        , label = Input.labelHidden "code"
+        , spellcheck = False
+        }
+
+codeImmut : Model -> Element Msg
+codeImmut model =
+    el baseCodeStyle (text model.code)
+
 content : Model -> Element Msg
 content model =
+    let
+        codeElem = case model.codeDisplay of
+            Mut -> codeInput
+            Immut -> codeImmut
+    in
     row
         [ width fill
         , height <| fillPortion 36
@@ -76,23 +117,7 @@ content model =
                 List.map (\i -> el [ alignRight ] <| text <| String.fromInt i) <|
                     List.range 0 (model.lines - 1)
             ]
-        , Input.multiline
-            [ Background.color darkTheme.contentBackground
-            , alignTop
-            , width <| fillPortion 130
-            , paddingEach { top = 12, bottom = 12, left = 6, right = 0 }
-            , Border.color <| rgba 0 0 0 0
-            , focused [ Border.color <| rgba 0 0 0 0 ]
-            , Input.focusedOnLoad
-            , spacing 0
-            , htmlAttribute <| Attr.id "code-input"
-            ]
-            { onChange = CodeInput
-            , text = model.code
-            , placeholder = Nothing
-            , label = Input.labelHidden "code"
-            , spellcheck = False
-            }
+        , codeElem model
         ]
 
 
@@ -141,6 +166,9 @@ view model =
 type Msg
     = CodeInput String
     | FocusInput
+    | LinkClick Browser.UrlRequest
+    | UrlChange Url.Url
+    | Reset
     | NoOp
 
 
@@ -163,13 +191,46 @@ update msg model =
         FocusInput ->
             ( model, Task.attempt (\_ -> NoOp) (Dom.focus "code-input") )
 
+        LinkClick req ->
+            case req of
+                Browser.Internal url ->
+                    (model, Cmd.none) -- TODO
+                Browser.External href ->
+                    ( model, Nav.load href )
+    
+        UrlChange url ->
+            (model, Cmd.none) -- TODO
+
+        Reset ->
+            (baseModel model.key Mut, Nav.pushUrl model.key <| Url.Builder.relative ["/"] [])
+
         NoOp ->
             ( model, Cmd.none )
 
 
-init : () -> ( Model, Cmd Msg )
-init _ =
-    ( { code = "", lines = 1, columns = 0 }, Cmd.none )
+remotePasteMap: Maybe String -> Msg
+remotePasteMap m =
+    Maybe.withDefault Reset <| Maybe.map (\c -> CodeInput c) m
+
+getPasteRemote: String -> Cmd Msg
+getPasteRemote id =
+    Cmd.map remotePasteMap <| getPaste id
+
+
+baseModel: Nav.Key -> CodeDisplayMode -> Model
+baseModel key codeDisplay = { code = "", key = key, codeDisplay = codeDisplay, lines = 1, columns = 0 }
+
+routeParser : Parser (Route -> a) a
+routeParser =
+    oneOf [ Url.Parser.map Paste string ]
+
+init : () -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
+init _ url key =
+    case Url.Parser.parse routeParser url of
+        Nothing ->
+            (baseModel key Mut, Cmd.none )
+        Just(Paste s) ->
+            (baseModel key Immut , getPasteRemote s)
 
 
 subscriptions : Model -> Sub Msg
@@ -179,9 +240,11 @@ subscriptions _ =
 
 main : Program () Model Msg
 main =
-    Browser.document
+    Browser.application
         { init = init
         , view = view
         , update = update
         , subscriptions = subscriptions
+        , onUrlChange = (\_ -> NoOp)
+        , onUrlRequest = (\_ -> NoOp)
         }
